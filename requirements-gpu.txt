@@ -1,0 +1,8 @@
+# Training and local inference on the cluster (CUDA). Pin versions after the first working install.
+-r requirements.txt
+torch>=2.6
+transformers>=5.0        # must know the Qwen3.5 architecture
+peft>=0.17
+accelerate>=1.0
+vllm>=0.11               # serving + in-process generation with LoRA
+bitsandbytes>=0.45       # only for load_in_4bit (QLoRA, 14B on 40 GB GPUs)

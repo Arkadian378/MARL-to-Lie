@@ -1,0 +1,5 @@
+default {'thieves_win': 0.18, 'police_win': 0.06, 'thief_pieces_final': 7.43, 'thieves_arrested': 0.52, 'corrupt_detection_rate': 0.79}
+no_radio {'thieves_win': 0.14, 'police_win': 0.13, 'thief_pieces_final': 7.08, 'thieves_arrested': 0.56, 'corrupt_detection_rate': 0.7}
+no_reveals {'thieves_win': 0.18, 'police_win': 0.06, 'thief_pieces_final': 7.43, 'thieves_arrested': 0.52, 'corrupt_detection_rate': 0.79}
+one_action_per_cop {'thieves_win': 0.16, 'police_win': 0.01, 'thief_pieces_final': 8.85, 'thieves_arrested': 0.14, 'corrupt_detection_rate': 0.72}
+goal_10 {'thieves_win': 0.37, 'police_win': 0.06, 'thief_pieces_final': 7.1, 'thieves_arrested': 0.5, 'corrupt_detection_rate': 0.79}

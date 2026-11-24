@@ -1,0 +1,50 @@
+# STEP 3 - RL of the corrupt role against fixed opponents, FULL game.
+# Both corrupt seats share one LoRA adapter; police and thieves are heuristic.
+# Condition and seed come from the command line (see slurm/plan.py), e.g.
+#   python training/grpo.py --config training/configs/step3_corrupt.yaml \
+#     --set name=step3_radio_exact_audit0_s1 --set seed=1 \
+#     --set game.overrides.radio_mode=exact --set game.overrides.audit_prob=0.0
+name: step3_corrupt
+seed: 1
+out_dir: null                   # default: runs/train/<name>
+model:
+  name: Qwen/Qwen3.5-9B          # check the exact Hugging Face id on the cluster; 14B: Qwen/Qwen3-14B
+  dtype: bf16
+  load_in_4bit: false            # true for 14B on a 40 GB A100 (QLoRA, needs bitsandbytes)
+  gradient_checkpointing: true
+  chat_template_kwargs: {enable_thinking: false}
+lora: {r: 32, alpha: 64, dropout: 0.0, target_modules: all-linear}
+generator:
+  kind: vllm                     # vllm (same GPU) | vllm_server (other GPU) | hf (slow, for tests)
+  max_new_tokens: 384
+  temperature: 1.0
+  top_p: 1.0
+  max_lora_rank: 32
+  gpu_memory_utilization: 0.35   # the rest of the 80 GB is for training
+  max_model_len: 8192
+game: {variant: full, overrides: {radio_mode: exact, audit_prob: 0.0}}
+history_events: 80
+roles:
+  corrupt: {adapter: corrupt, init: null}
+opponents:
+  cop: {type: heuristic}
+  thief: {type: heuristic}
+learners: [corrupt]
+population: {snapshot_every: 25}
+train:
+  steps: 300
+  seeds_per_step: 4              # groups per step
+  group_size: 8                  # games per group (same seed)
+  lr: 1.0e-5
+  clip_eps: 0.2
+  kl_beta: 0.0                   # >0 adds a KL penalty to the base model (costs one more forward)
+  ppo_epochs: 1
+  grad_clip: 1.0
+  max_prompt_tokens: 7000
+  max_tokens_per_microbatch: 16384
+  max_samples_per_step: 2048     # decisions trained on per step (random subset)
+  train_kinds: [police_action, report, chat, vote, place]
+  reward:
+    scale: 1.0
+    invalid_penalty: 0.1         # per unparsable answer
+    deception_lambda: 0.0        # >0 only for the "explicit deception reward" control (step 5)

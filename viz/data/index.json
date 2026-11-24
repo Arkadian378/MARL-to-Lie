@@ -1,0 +1,26 @@
+[
+  {
+    "file": "thieves_win_seed1.json",
+    "title": "thieves win",
+    "seed": 1,
+    "end_reason": "thieves_reached_goal"
+  },
+  {
+    "file": "corrupt_undetected_seed3.json",
+    "title": "corrupt undetected",
+    "seed": 3,
+    "end_reason": "max_rounds"
+  },
+  {
+    "file": "arrest_and_exposed_seed10.json",
+    "title": "arrest and exposed",
+    "seed": 10,
+    "end_reason": "max_rounds"
+  },
+  {
+    "file": "police_win_seed22.json",
+    "title": "police win",
+    "seed": 22,
+    "end_reason": "all_thieves_arrested"
+  }
+]

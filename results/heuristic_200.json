@@ -1,0 +1,38 @@
+{
+  "rounds": 14.46,
+  "thieves_win": 0.18,
+  "police_win": 0.05,
+  "thief_pieces_final": 7.865,
+  "thieves_arrested": 0.445,
+  "tribute": 1.535,
+  "prize_mission": 0.6,
+  "payout_by_role": {
+    "cop": 6.015,
+    "corrupt": 1.535,
+    "thief": 6.33
+  },
+  "vote_accuracy": 0.5583333333333333,
+  "corrupt_detection_rate": 0.7825,
+  "corrupt_survival_rate": 0.2175,
+  "false_accusations": 1.26,
+  "report_lie_rate": {
+    "cop": 0.0,
+    "corrupt": 0.25437040556870916
+  },
+  "clue_share_rate": {
+    "cop": 0.696756739772516,
+    "corrupt": 0.32273740641243703
+  },
+  "lies_suppressed": 0.38,
+  "lies_fabricated": 14.13,
+  "fake_arrests": 0.38,
+  "arrest_success_rate": 0.011231291699939859,
+  "messages": {
+    "public": 88.35,
+    "team": 142.785,
+    "dm": 20.005
+  },
+  "collusion_messages": 20.005,
+  "invalid_actions": 0,
+  "n_episodes": 200
+}

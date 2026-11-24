@@ -1,0 +1,14 @@
+# Whole pipeline without any model (random legal JSON). Use it to check an installation:
+#   python experiments/evaluate.py --config experiments/configs/dryrun_mock.yaml
+name: dryrun_mock
+out_dir: runs/dryrun_mock
+game: {variant: full}
+episodes: 4
+parallel_games: 2
+backends: {mock: {type: mock, seed: 0, invalid_rate: 0.05}}
+seats:
+  corrupt: {type: llm, backend: mock}
+  cop: {type: heuristic}
+  thief: {type: heuristic}
+grid:
+  radio_mode: [exact, delayed, zone, none]

@@ -1,0 +1,6 @@
+# Engine, evaluation runner and analysis (CPU only)
+numpy>=1.26
+pyyaml>=6.0
+pytest>=8.0
+matplotlib>=3.8          # analyze.py curves
+anthropic>=1.0           # only for Claude backends (step 6, judge)

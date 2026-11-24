@@ -1,0 +1,33 @@
+# STEP 2 - baselines on the full game, in the same 2x2 conditions used for RL (step 3):
+# radio exact/none x audit 0/0.3. Seats: random corrupt, heuristic corrupt, untrained Qwen corrupt.
+# Plus Qwen untrained in all seats (one condition). 200 games per cell.
+name: step2_baselines
+out_dir: runs/step2_baselines
+game: {variant: full}
+history_events: 80
+episodes: 200
+seed_start: 10000
+parallel_games: 16
+save_transcripts: true
+backends:
+  qwen:
+    type: openai
+    base_url: http://localhost:8000/v1
+    model: qwen9b
+    max_tokens: 512
+    temperature: 0.7
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}
+seats:
+  cop: {type: heuristic}
+  thief: {type: heuristic}
+grid:
+  seats:
+    random: {corrupt: {type: random}}
+    heuristic: {corrupt: {type: heuristic}}
+    qwen0: {corrupt: {type: llm, backend: qwen}}
+  radio_mode: [exact, none]
+  audit_prob: [0.0, 0.3]
+# Qwen in every seat (comment out `grid` and use this to run it):
+# cells:
+#   - name: qwen_all_seats
+#     seats: {corrupt: {type: llm, backend: qwen}, cop: {type: llm, backend: qwen}, thief: {type: llm, backend: qwen}}

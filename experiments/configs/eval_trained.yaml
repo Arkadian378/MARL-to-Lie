@@ -1,0 +1,25 @@
+# Evaluation of a TRAINED adapter (steps 3, 4, 5): 200 games on the condition it was trained on.
+# Serve base + adapter with vLLM (slurm/eval_adapter.sh does it), then for example:
+#   python experiments/evaluate.py --config experiments/configs/eval_trained.yaml \
+#     --set name=step3_radio_exact_audit0_s1 --set backends.qwen.model=trained \
+#     --set game.overrides.radio_mode=exact --set game.overrides.audit_prob=0.0
+# For a self-play run (step 4) also set seats.cop to the cop adapter (served as a second LoRA).
+name: eval_trained
+game: {variant: full, overrides: {}}
+history_events: 80
+episodes: 200
+seed_start: 10000              # same evaluation seeds as the baselines
+parallel_games: 16
+save_transcripts: true
+backends:
+  qwen:
+    type: openai
+    base_url: http://localhost:8000/v1
+    model: trained
+    max_tokens: 512
+    temperature: 0.7
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}
+seats:
+  corrupt: {type: llm, backend: qwen}
+  cop: {type: heuristic}
+  thief: {type: heuristic}

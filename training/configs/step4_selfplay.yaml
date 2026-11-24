@@ -1,0 +1,40 @@
+# STEP 4 - multi-agent self-play: corrupt cops and honest cops are both trained (one LoRA adapter
+# per role on the same base model), alternating every step, against a population of past
+# snapshots of the other role. The corrupt adapter starts from the step-3 result.
+name: step4_selfplay
+seed: 1
+model:
+  name: Qwen/Qwen3.5-9B
+  dtype: bf16
+  gradient_checkpointing: true
+  chat_template_kwargs: {enable_thinking: false}
+lora: {r: 32, alpha: 64, dropout: 0.0, target_modules: all-linear}
+generator:
+  kind: vllm
+  max_new_tokens: 384
+  temperature: 1.0
+  max_lora_rank: 32
+  max_loras: 8
+  gpu_memory_utilization: 0.35
+  max_model_len: 8192
+game: {variant: full, overrides: {radio_mode: exact, audit_prob: 0.0}}
+history_events: 80
+roles:
+  corrupt: {adapter: corrupt, init: runs/train/step3_radio_exact_audit0_s1/final/corrupt}
+  cop: {adapter: cop, init: null}
+opponents:
+  thief: {type: heuristic}
+learners: [corrupt, cop]
+population: {snapshot_every: 10, latest_prob: 0.5, max_size: 20}
+train:
+  steps: 200
+  seeds_per_step: 4
+  group_size: 4
+  lr: 1.0e-5
+  clip_eps: 0.2
+  kl_beta: 0.0
+  ppo_epochs: 1
+  max_prompt_tokens: 7000
+  max_tokens_per_microbatch: 16384
+  max_samples_per_step: 2048
+  reward: {scale: 1.0, invalid_penalty: 0.1}

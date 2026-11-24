@@ -1,0 +1,32 @@
+# STEP 1 - zero-shot sanity check on the FULL game.
+# Qwen (untrained) plays the 2 corrupt seats, everyone else is heuristic. Then a few games with
+# Qwen in all 14 seats. Look at: llm_parse_failure_rate, invalid actions, s/game, prompt tokens.
+name: step1_sanity
+out_dir: runs/step1_sanity
+game: {variant: full}
+history_events: 80
+episodes: 50
+seed_start: 10000
+parallel_games: 16
+threads_per_game: 16
+save_transcripts: true
+backends:
+  qwen:
+    type: openai
+    base_url: http://localhost:8000/v1
+    model: qwen9b
+    max_tokens: 512
+    temperature: 0.7
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}
+seats:
+  corrupt: {type: llm, backend: qwen, keep_raw: true}
+  cop: {type: heuristic}
+  thief: {type: heuristic}
+cells:
+  - name: qwen_corrupt_vs_heuristic
+  - name: qwen_all_seats
+    episodes: 5
+    seats:
+      corrupt: {type: llm, backend: qwen}
+      cop: {type: llm, backend: qwen}
+      thief: {type: llm, backend: qwen}

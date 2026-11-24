@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# Model weights and caches (download them on the cluster, never commit)
+.hf_cache/
+*.safetensors
+*.bin
+*.gguf
+
+# Experiment outputs: runs, adapters, checkpoints, logs
+runs/
+jobs/
+logs/
+vllm_*.log
+optim_*.pt
+wandb/
+
+# Generated files
+viz/dist/
+*.png
+!docs/**/*.png
+
+# API keys
+*.key
+secrets*
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+docs/

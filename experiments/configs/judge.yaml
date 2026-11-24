@@ -1,0 +1,6 @@
+# Judge for free-text deception (experiments/judge.py). Use a model from a different family
+# than the one being judged, and validate it on ~200 hand-labelled messages first.
+backends:
+  judge: {type: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 1024}
+  # cheaper bulk alternative:
+  # judge: {type: anthropic, model: claude-haiku-5-5, effort: low, max_tokens: 1024}
