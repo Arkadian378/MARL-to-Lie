@@ -1,0 +1,31 @@
+# STEP 1 on a laptop: untrained Qwen served by Ollama plays the 2 corrupt seats, everyone else is
+# heuristic. A few games only (one full game is ~160 model calls). The all-seats cell is for the cluster.
+#
+#   ollama pull qwen3.5:9b
+#   python experiments/evaluate.py --config experiments/configs/step1_local.yaml
+#
+# Look at: llm_parse_failure_rate.corrupt and llm_truncated_rate.corrupt (both should be < 0.05),
+# usage.json, and transcripts/seed*_llm.json (the raw replies).
+name: step1_local
+out_dir: runs/step1_local
+game: {variant: full}
+history_events: 80
+episodes: 3
+seed_start: 10000
+parallel_games: 1
+threads_per_game: 2
+save_transcripts: true
+backends:
+  qwen:
+    type: ollama                # native API: thinking off (the /v1 endpoint ignores enable_thinking)
+    model: "qwen3.5:9b"         # name as shown by `ollama list`
+    max_tokens: 512
+    temperature: 0.7
+    num_ctx: 8192               # must hold the whole prompt (~2-4k tokens on the full game)
+    json_mode: false            # true = Ollama forces valid JSON (tests the pipeline, hides format errors)
+seats:
+  corrupt: {type: llm, backend: qwen, keep_raw: true}
+  cop: {type: heuristic}
+  thief: {type: heuristic}
+cells:
+  - name: qwen_corrupt_vs_heuristic

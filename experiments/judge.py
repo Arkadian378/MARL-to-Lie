@@ -51,7 +51,9 @@ def main():
     for cell in cells:
         judge.usage = Usage()
         items = []
-        for p in sorted(glob.glob(os.path.join(cell, "transcripts", "*.json"))):
+        for p in sorted(glob.glob(os.path.join(cell, "transcripts", "seed*.json"))):
+            if p.endswith("_llm.json"):          # raw model replies, not a game transcript
+                continue
             msgs = list(messages_of(p, roles))
             if args.max_per_game and len(msgs) > args.max_per_game:
                 msgs = random.Random(p).sample(msgs, args.max_per_game)

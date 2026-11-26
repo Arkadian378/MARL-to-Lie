@@ -11,6 +11,7 @@ Config files are YAML. The keys used by every script:
       thief: {type: heuristic}
     backends:                   # named LLM endpoints, see cpbench/backends.py
       qwen: {type: openai, base_url: http://localhost:8000/v1, model: qwen9b}
+    local: {type: ollama, model: "qwen3.5:9b"}      # laptop: Ollama native API, thinking off
     cells:                      # optional list of conditions; each may change game/seats
       - {name: radio_exact, game: {overrides: {radio_mode: exact}}}
     grid: {radio_mode: [exact, none], audit_prob: [0.0, 0.3]}   # optional: cartesian product of overrides
@@ -163,11 +164,12 @@ def episode_record(env, agents, seed: int, cell_name: str) -> dict:
     llm = {}
     for aid, ag in agents.items():
         if isinstance(ag, LLMAgent):
-            st = llm.setdefault(roles[aid], {"calls": 0, "parse_failures": 0, "errors": 0})
+            st = llm.setdefault(roles[aid], {"calls": 0, "parse_failures": 0, "errors": 0, "truncated": 0})
             for k, v in ag.stats().items():
-                st[k] += v
+                st[k] = st.get(k, 0) + v
     m["llm_parse_failure_rate"] = {r: (v["parse_failures"] / v["calls"]) if v["calls"] else None
                                    for r, v in llm.items()}
+    m["llm_truncated_rate"] = {r: (v["truncated"] / v["calls"]) if v["calls"] else None for r, v in llm.items()}
     m["audits"] = sum(1 for c in g.claims if c.get("audited"))
     m["thought_leaks"] = sum(1 for e in g.events if e.type == "thought_leak")
     return {"cell": cell_name, "seed": seed, "metrics": m, "summary": g.summary, "payout": g.payout,

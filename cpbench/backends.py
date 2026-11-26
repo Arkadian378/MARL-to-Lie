@@ -7,6 +7,8 @@ thread-safe token counters, so an experiment can report tokens and cost.
   local or cluster **vLLM** server (open-weight Qwen, with or without LoRA
   adapters), OpenAI, Gemini (OpenAI-compatible endpoint), DeepSeek, Together.
   Uses only the standard library.
+- ``ollama``: a model served locally by Ollama (native API, thinking off). For local
+  sanity checks on a laptop.
 - ``anthropic``: Claude models through the official ``anthropic`` SDK.
 - ``mock``: no model; answers with a random *legal* JSON action parsed from the
   request. Used by the tests and to dry-run the whole pipeline without a GPU.
@@ -48,6 +50,8 @@ class Completion:
     completion_tokens: int = 0
     latency_s: float = 0.0
     error: str | None = None
+    finish_reason: str | None = None   # "length" = cut at max_tokens (usually: the model was still thinking)
+    reasoning: str | None = None       # separate thinking text, if the server returns one
 
 
 @dataclass
@@ -57,6 +61,7 @@ class Usage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     seconds: float = 0.0
+    truncated: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def add(self, c: Completion):
@@ -66,10 +71,12 @@ class Usage:
             self.prompt_tokens += c.prompt_tokens
             self.completion_tokens += c.completion_tokens
             self.seconds += c.latency_s
+            self.truncated += int(c.finish_reason == "length")
 
     def to_dict(self, model: str | None = None) -> dict:
         d = {"calls": self.calls, "errors": self.errors, "prompt_tokens": self.prompt_tokens,
-             "completion_tokens": self.completion_tokens, "seconds": round(self.seconds, 1)}
+             "completion_tokens": self.completion_tokens, "seconds": round(self.seconds, 1),
+             "truncated": self.truncated}
         if model in PRICES:
             pin, pout = PRICES[model]
             d["est_cost_usd"] = round((self.prompt_tokens * pin + self.completion_tokens * pout) / 1e6, 4)
@@ -148,10 +155,58 @@ class OpenAICompatBackend(Backend):
             out = _retry(call, self.max_retries, self.model)
         except Exception as e:  # noqa: BLE001
             return Completion("", latency_s=time.time() - t0, error=f"{type(e).__name__}: {e}")
-        msg = (out.get("choices") or [{}])[0].get("message") or {}
+        ch = (out.get("choices") or [{}])[0]
+        msg = ch.get("message") or {}
         u = out.get("usage") or {}
         return Completion(msg.get("content") or "", u.get("prompt_tokens", 0), u.get("completion_tokens", 0),
-                          time.time() - t0)
+                          time.time() - t0, finish_reason=ch.get("finish_reason"),
+                          reasoning=msg.get("reasoning_content") or msg.get("reasoning"))
+
+
+class OllamaBackend(Backend):
+    """Local model served by Ollama, through its native ``/api/chat`` endpoint.
+
+    The OpenAI-compatible endpoint of Ollama ignores vLLM's ``chat_template_kwargs``, so Qwen keeps
+    thinking and the answer is cut at ``max_tokens`` before the JSON. The native API turns thinking
+    off with ``think: false``. ``num_ctx`` must hold the whole prompt (Ollama's default is small and
+    it silently drops the beginning of longer prompts). ``json_mode`` constrains the output to valid
+    JSON (useful to test the pipeline; leave it off to measure the model's own format errors)."""
+
+    def __init__(self, model: str, host: str = "http://localhost:11434", think: bool | str = False,
+                 temperature: float | None = 0.7, max_tokens: int = 512, num_ctx: int = 8192,
+                 json_mode: bool = False, keep_alive: str = "30m", timeout: float = 600, max_retries: int = 3,
+                 options: dict | None = None, **_):
+        super().__init__()
+        self.model, self.host = model, host.rstrip("/").removesuffix("/v1")
+        self.think, self.temperature, self.max_tokens, self.num_ctx = think, temperature, max_tokens, num_ctx
+        self.json_mode, self.keep_alive, self.timeout, self.max_retries = json_mode, keep_alive, timeout, max_retries
+        self.options = options or {}
+
+    def _complete(self, system: str, user: str) -> Completion:
+        opts = {"num_predict": self.max_tokens, "num_ctx": self.num_ctx} | self.options
+        if self.temperature is not None:
+            opts["temperature"] = self.temperature
+        body = {"model": self.model, "stream": False, "think": self.think, "keep_alive": self.keep_alive,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "options": opts}
+        if self.json_mode:
+            body["format"] = "json"
+        data = json.dumps(body).encode()
+
+        def call():
+            req = urllib.request.Request(f"{self.host}/api/chat", data=data, method="POST",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                return json.loads(r.read())
+
+        t0 = time.time()
+        try:
+            out = _retry(call, self.max_retries, self.model)
+        except Exception as e:  # noqa: BLE001
+            return Completion("", latency_s=time.time() - t0, error=f"{type(e).__name__}: {e}")
+        msg = out.get("message") or {}
+        return Completion(msg.get("content") or "", out.get("prompt_eval_count", 0), out.get("eval_count", 0),
+                          time.time() - t0, finish_reason=out.get("done_reason"), reasoning=msg.get("thinking"))
 
 
 class AnthropicBackend(Backend):
@@ -177,10 +232,11 @@ class AnthropicBackend(Backend):
                 r = self.client.messages.create(**kw)
         except Exception as e:  # noqa: BLE001
             return Completion("", latency_s=time.time() - t0, error=f"{type(e).__name__}: {e}")
+        fin = "length" if r.stop_reason == "max_tokens" else r.stop_reason
         if r.stop_reason == "refusal":
             return Completion("", r.usage.input_tokens, r.usage.output_tokens, time.time() - t0, error="refusal")
         text = "".join(b.text for b in r.content if b.type == "text")
-        return Completion(text, r.usage.input_tokens, r.usage.output_tokens, time.time() - t0)
+        return Completion(text, r.usage.input_tokens, r.usage.output_tokens, time.time() - t0, finish_reason=fin)
 
 
 class MockBackend(Backend):
@@ -235,6 +291,8 @@ def make_backend(spec: dict) -> Backend:
     typ = spec.pop("type")
     if typ == "openai":
         return OpenAICompatBackend(**spec)
+    if typ == "ollama":
+        return OllamaBackend(**spec)
     if typ == "anthropic":
         return AnthropicBackend(**spec)
     if typ == "mock":

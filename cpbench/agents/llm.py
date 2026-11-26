@@ -39,22 +39,25 @@ class LLMAgent(RandomAgent):
         self.calls = 0
         self.parse_failures = 0
         self.errors = 0
+        self.truncated = 0
 
     def _ask(self, prompt: str):
         if hasattr(self.complete, "complete"):          # a cpbench.backends.Backend
             c = self.complete.complete(self.system, prompt)
-            return c.text, c.error, (c.prompt_tokens, c.completion_tokens)
-        return self.complete(self.system, prompt), None, None
+            return c.text, c.error, (c.prompt_tokens, c.completion_tokens), c.finish_reason, c.reasoning
+        return self.complete(self.system, prompt), None, None, None, None
 
     def act(self, obs: dict) -> dict:
         prompt = build_prompt(obs, self.history_events)
-        reply, error, toks = self._ask(prompt)
+        reply, error, toks, finish, reasoning = self._ask(prompt)
         self.calls += 1
         self.errors += int(error is not None)
+        self.truncated += int(finish == "length")
+        action = parse_json(reply)
         if self.keep_raw:
             self.raw.append({"round": obs["round"], "kind": obs["request"]["kind"], "prompt_chars": len(prompt),
-                             "reply": reply, "error": error, "tokens": toks})
-        action = parse_json(reply)
+                             "reply": reply, "reasoning": reasoning, "finish_reason": finish, "error": error,
+                             "tokens": toks, "parsed": action is not None})
         if action is None:
             self.parse_failures += 1
             return super().act(obs)
@@ -63,7 +66,8 @@ class LLMAgent(RandomAgent):
         return action
 
     def stats(self) -> dict:
-        return {"calls": self.calls, "parse_failures": self.parse_failures, "errors": self.errors}
+        return {"calls": self.calls, "parse_failures": self.parse_failures, "errors": self.errors,
+                "truncated": self.truncated}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)
@@ -74,6 +78,8 @@ def parse_json(text: str) -> dict | None:
     if not text:
         return None
     text = _THINK.sub("", text)
+    if "<think>" in text:                    # thinking never closed: the answer was cut before the JSON
+        text = text.split("<think>")[0]
     start = text.find("{")
     while start != -1:
         depth, in_str, esc = 0, False, False

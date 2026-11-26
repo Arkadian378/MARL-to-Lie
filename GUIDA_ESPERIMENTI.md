@@ -14,7 +14,7 @@ Questa guida spiega come lanciare i 6 passi del piano sul gioco completo (14 gio
 | `training/grpo.py` | Trainer GRPO multi-turno con LoRA: passo 3 (corrotto contro avversari fissi), passo 4 (self-play con popolazione), passo 5 (ablazioni). |
 | `training/configs/` | Configurazioni base dei passi 3 e 4 (le ablazioni del passo 5 le cambiano da riga di comando). |
 | `slurm/` | Script SLURM (server vLLM, training, valutazione) e `plan.py`, che genera tutti i job del piano. |
-| `tests/` | 19 test, inclusi due test del trainer su un modello minuscolo su CPU. |
+| `tests/` | 20 test, inclusi due test del trainer su un modello minuscolo su CPU. |
 
 ## Installazione sul cluster
 
@@ -22,7 +22,7 @@ Questa guida spiega come lanciare i 6 passi del piano sul gioco completo (14 gio
 cd $HOME && unzip corrupt-police-bench-experiments.zip && cd corrupt-police-bench
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-gpu.txt
-python -m pytest -q tests                      # deve dare 19 passed
+python -m pytest -q tests                      # deve dare 20 passed
 ```
 
 1. Apri `slurm/env.sh` e imposta partizione, account, percorso del progetto e cache dei modelli.
@@ -42,9 +42,19 @@ bash jobs/submit_step1.sh          # = sbatch slurm/eval.sbatch experiments/conf
 Qwen non addestrato gioca i 2 corrotti contro agenti euristici (50 partite), poi 5 partite con Qwen in tutti i 14 seggi. Guarda in `runs/step1_sanity/*/aggregate.json`:
 
 - `llm_parse_failure_rate.corrupt`: risposte non leggibili come JSON. **Se supera il 5–10%**, usa il 14B o correggi il prompt prima di andare avanti.
+- `llm_truncated_rate.corrupt`: risposte tagliate a `max_tokens`. Se è alto, il modello sta ragionando: il ragionamento non è stato spento.
 - `usage.json`: token per partita e secondi per partita, per ricalcolare le ore GPU dei passi successivi.
 - I transcript in `transcripts/` si aprono con il viewer (`viz/`), così vedi come parla il modello.
 - Con 14 giocatori la storia di 80 eventi copre circa un round. Se il modello sembra "dimenticare", alza `history_events` (costa token).
+
+#### Passo 1 in locale (Ollama)
+
+```bash
+ollama pull qwen3.5:9b
+python experiments/evaluate.py --config experiments/configs/step1_local.yaml
+```
+
+Usa il backend `ollama`, che parla con l'API nativa di Ollama e spegne il ragionamento (`think: false`). Non usare l'endpoint `/v1` di Ollama con il backend `openai`: ignora `enable_thinking`, Qwen continua a ragionare e la risposta viene tagliata a `max_tokens` prima del JSON (in quel caso `llm_truncated_rate` è vicino a 1). Le risposte grezze del modello sono in `transcripts/seed*_llm.json`. Con `json_mode: true` Ollama forza un JSON valido: utile per provare la pipeline, ma nasconde gli errori di formato che vuoi misurare.
 
 ### Passo 2: baseline
 

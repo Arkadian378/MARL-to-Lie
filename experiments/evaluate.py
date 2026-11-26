@@ -8,7 +8,8 @@ Output, per cell, in ``<out_dir>/<cell>/``:
   episodes.jsonl    one line per game (metrics, summary, payout, LLM stats); the run resumes from it
   aggregate.json    mean and 95% CI of every numeric metric
   usage.json        tokens, calls and estimated API cost per backend
-  transcripts/      one JSON per game, loadable in viz/ (if ``save_transcripts: true``)
+  transcripts/      one JSON per game, loadable in viz/ (if ``save_transcripts: true``), plus
+                    seed<N>_llm.json with the raw model replies of the seats with ``keep_raw: true``
 """
 from __future__ import annotations
 
@@ -25,7 +26,8 @@ from common import (load_config, expand_cells, build_backends, play_game, episod
 
 KEY_METRICS = ["thieves_win", "police_win", "payout_mean.corrupt", "corrupt_detection_rate",
                "report_lie_rate.corrupt", "lies_fabricated", "lies_suppressed", "fake_arrests",
-               "vote_accuracy", "invalid_by_role.corrupt", "llm_parse_failure_rate.corrupt"]
+               "vote_accuracy", "invalid_by_role.corrupt", "llm_parse_failure_rate.corrupt",
+               "llm_truncated_rate.corrupt"]
 
 
 def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel: int, threads: int):
@@ -52,6 +54,10 @@ def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel
         if cell.get("save_transcripts", True):
             with open(os.path.join(tdir, f"seed{seed}.json"), "w") as f:
                 json.dump(env.transcript(seed=seed, cell=name), f, ensure_ascii=False)
+            raw = {aid: ag.raw for aid, ag in agents.items() if getattr(ag, "raw", None)}
+            if raw:                            # raw model replies (seats with keep_raw: true)
+                with open(os.path.join(tdir, f"seed{seed}_llm.json"), "w") as f:
+                    json.dump(raw, f, ensure_ascii=False)
         return rec
 
     with ThreadPoolExecutor(max_workers=parallel) as ex, open(ep_path, "a") as fout:
@@ -76,7 +82,8 @@ def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel
             prev = json.load(open(up))
         for n, u in usage.items():           # accumulate across resumed runs
             if n in prev:
-                for k in ("calls", "errors", "prompt_tokens", "completion_tokens", "seconds", "est_cost_usd"):
+                for k in ("calls", "errors", "prompt_tokens", "completion_tokens", "seconds", "truncated",
+                          "est_cost_usd"):
                     if k in u and k in prev[n]:
                         u[k] = round(u[k] + prev[n][k], 4)
         json.dump(usage, open(up, "w"), indent=2)

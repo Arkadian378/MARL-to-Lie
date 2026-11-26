@@ -104,3 +104,53 @@ grid: {radio_mode: [exact, none]}
     r = subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "analyze.py"), "h1", str(out)],
                        check=True, capture_output=True, text=True)
     assert "slope_per_level" in r.stdout
+
+
+def test_ollama_backend_and_raw_replies(tmp_path):
+    """Ollama native API through a local stub server: think=false is sent, truncation is counted,
+    raw replies are saved next to the transcript."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from cpbench.backends import make_backend, mock_answer
+    import random as _r
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            seen.append(body)
+            user = body["messages"][1]["content"]
+            cut = len(seen) % 4 == 0           # every 4th answer: still thinking, cut at max_tokens
+            out = {"message": {"role": "assistant", "content": "" if cut else mock_answer(user, _r.Random(len(seen))),
+                               "thinking": "hmm" if cut else None},
+                   "done_reason": "length" if cut else "stop", "prompt_eval_count": 100, "eval_count": 20}
+            data = json.dumps(out).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        b = make_backend({"type": "ollama", "model": "qwen3.5:9b",
+                          "host": f"http://127.0.0.1:{srv.server_port}/v1"})   # a /v1 suffix is tolerated
+        cfg = {"name": "t", "game": {"variant": "mini"}, "backends": {}, "save_transcripts": True,
+               "seats": {"corrupt": {"type": "llm", "backend": "q", "keep_raw": True}}}
+        from common import play_game, episode_record
+        env, agents = play_game(cfg, 3, {"q": b}, threads=2)
+        rec = episode_record(env, agents, 3, "t")
+    finally:
+        srv.shutdown()
+    assert seen and all(s["think"] is False and s["stream"] is False for s in seen)
+    assert seen[0]["options"]["num_ctx"] == 8192
+    tr = rec["metrics"]["llm_truncated_rate"]["corrupt"]
+    pf = rec["metrics"]["llm_parse_failure_rate"]["corrupt"]
+    assert 0.15 < tr < 0.35 and pf >= tr
+    assert b.usage.to_dict()["truncated"] == rec["llm_stats"]["corrupt"]["truncated"]
+    raw = [r for a in agents.values() for r in getattr(a, "raw", [])]
+    assert raw and {"reply", "reasoning", "finish_reason", "parsed"} <= set(raw[0])
