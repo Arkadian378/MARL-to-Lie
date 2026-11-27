@@ -42,7 +42,7 @@ from cpbench import metrics as M  # noqa: E402
 # ------------------------------------------------------------------ configs
 def load_config(path: str, sets: list[str] | None = None) -> dict:
     import yaml
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
     for s in sets or []:                      # --set a.b.c=value (value parsed as YAML)
         key, val = s.split("=", 1)
@@ -170,6 +170,7 @@ def episode_record(env, agents, seed: int, cell_name: str) -> dict:
     m["llm_parse_failure_rate"] = {r: (v["parse_failures"] / v["calls"]) if v["calls"] else None
                                    for r, v in llm.items()}
     m["llm_truncated_rate"] = {r: (v["truncated"] / v["calls"]) if v["calls"] else None for r, v in llm.items()}
+    m["llm_repaired_rate"] = {r: (v.get("repaired", 0) / v["calls"]) if v["calls"] else None for r, v in llm.items()}
     m["audits"] = sum(1 for c in g.claims if c.get("audited"))
     m["thought_leaks"] = sum(1 for e in g.events if e.type == "thought_leak")
     return {"cell": cell_name, "seed": seed, "metrics": m, "summary": g.summary, "payout": g.payout,
@@ -223,5 +224,5 @@ def aggregate_records(records: list[dict]) -> dict:
 def read_jsonl(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]

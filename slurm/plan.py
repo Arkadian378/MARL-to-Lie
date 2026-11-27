@@ -71,7 +71,7 @@ def main():
     steps[6].append("# after step 6: python experiments/judge.py --runs runs/step6_frontier --config experiments/configs/judge.yaml")
     for k, cmds in steps.items():
         p = os.path.join(a.out, f"submit_step{k}.sh")
-        with open(p, "w") as f:
+        with open(p, "w", encoding="utf-8") as f:
             f.write("#!/bin/bash\nset -e\nsource slurm/env.sh\nmkdir -p logs\n" + "\n".join(cmds) + "\n")
         os.chmod(p, 0o755)
         n_train = sum(1 for c in cmds if "train.sbatch" in c)

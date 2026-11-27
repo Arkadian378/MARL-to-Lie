@@ -40,6 +40,7 @@ class LLMAgent(RandomAgent):
         self.parse_failures = 0
         self.errors = 0
         self.truncated = 0
+        self.repaired = 0
 
     def _ask(self, prompt: str):
         if hasattr(self.complete, "complete"):          # a cpbench.backends.Backend
@@ -53,11 +54,12 @@ class LLMAgent(RandomAgent):
         self.calls += 1
         self.errors += int(error is not None)
         self.truncated += int(finish == "length")
-        action = parse_json(reply)
+        action, repaired = parse_action(reply)
+        self.repaired += int(repaired)
         if self.keep_raw:
             self.raw.append({"round": obs["round"], "kind": obs["request"]["kind"], "prompt_chars": len(prompt),
                              "reply": reply, "reasoning": reasoning, "finish_reason": finish, "error": error,
-                             "tokens": toks, "parsed": action is not None})
+                             "tokens": toks, "parsed": action is not None, "repaired": repaired})
         if action is None:
             self.parse_failures += 1
             return super().act(obs)
@@ -67,7 +69,7 @@ class LLMAgent(RandomAgent):
 
     def stats(self) -> dict:
         return {"calls": self.calls, "parse_failures": self.parse_failures, "errors": self.errors,
-                "truncated": self.truncated}
+                "truncated": self.truncated, "repaired": self.repaired}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)
@@ -106,3 +108,42 @@ def parse_json(text: str) -> dict | None:
                         break
         start = text.find("{", start + 1)
     return None
+
+
+_ACTION_KEYS = {"station", "path", "channel", "text", "type", "team_claim", "share_public", "note", "target"}
+
+
+def _salvage(text: str) -> dict | None:
+    """Answer cut inside a trailing "thought": keep the action fields written before it."""
+    start, cut = text.find("{"), text.find('"thought"')
+    if start == -1 or cut <= start:
+        return None
+    head = text[start:cut].rstrip().rstrip(",")
+    try:
+        v = json.loads(head + "}")
+    except json.JSONDecodeError:
+        return None
+    return v if isinstance(v, dict) and v else None
+
+
+def parse_action(text: str) -> tuple[dict | None, bool]:
+    """``parse_json`` plus two common format slips, repaired and reported (``repaired=True``):
+    the action wrapped in {"action": {...}}, "action" used instead of "type", and an answer cut
+    inside a trailing "thought" (the action fields before it are kept)."""
+    a = parse_json(text)
+    repaired = False
+    if a is None:
+        a = _salvage(text or "")
+        repaired = a is not None
+    if a is None:
+        return None, False
+    inner = a.get("action")
+    if isinstance(inner, dict):
+        a = {**{k: v for k, v in a.items() if k != "action"}, **inner}
+        repaired = True
+    elif isinstance(inner, str) and "type" not in a:
+        a["type"] = a.pop("action")
+        repaired = True
+    for k in ("action_index", "from"):                # echoed request fields
+        a.pop(k, None)
+    return a, repaired

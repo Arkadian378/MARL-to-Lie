@@ -34,7 +34,7 @@ def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel
     name = cell["name"]
     out = os.path.join(out_root, name.replace("/", "_"))
     os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, "cell_config.json"), "w") as f:
+    with open(os.path.join(out, "cell_config.json"), "w", encoding="utf-8") as f:
         json.dump({k: v for k, v in cell.items() if k != "backends"} |
                   {"backends": {k: {kk: vv for kk, vv in b.items() if "key" not in kk}
                                 for k, b in (cell.get("backends") or {}).items()}}, f, indent=2)
@@ -52,15 +52,15 @@ def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel
         env, agents = play_game(cell, seed, backends, threads)
         rec = episode_record(env, agents, seed, name)
         if cell.get("save_transcripts", True):
-            with open(os.path.join(tdir, f"seed{seed}.json"), "w") as f:
+            with open(os.path.join(tdir, f"seed{seed}.json"), "w", encoding="utf-8") as f:
                 json.dump(env.transcript(seed=seed, cell=name), f, ensure_ascii=False)
             raw = {aid: ag.raw for aid, ag in agents.items() if getattr(ag, "raw", None)}
             if raw:                            # raw model replies (seats with keep_raw: true)
-                with open(os.path.join(tdir, f"seed{seed}_llm.json"), "w") as f:
+                with open(os.path.join(tdir, f"seed{seed}_llm.json"), "w", encoding="utf-8") as f:
                     json.dump(raw, f, ensure_ascii=False)
         return rec
 
-    with ThreadPoolExecutor(max_workers=parallel) as ex, open(ep_path, "a") as fout:
+    with ThreadPoolExecutor(max_workers=parallel) as ex, open(ep_path, "a", encoding="utf-8") as fout:
         futs = [ex.submit(one, s) for s in seeds]
         for i, f in enumerate(as_completed(futs), 1):
             rec = f.result()
@@ -72,21 +72,21 @@ def run_cell(cell: dict, out_root: str, episodes: int, seed_start: int, parallel
 
     recs = read_jsonl(ep_path)
     agg = aggregate_records(recs)
-    with open(os.path.join(out, "aggregate.json"), "w") as f:
+    with open(os.path.join(out, "aggregate.json"), "w", encoding="utf-8") as f:
         json.dump(agg, f, indent=2)
     usage = {n: b.usage.to_dict(getattr(b, "model", None)) for n, b in backends.items()}
     if usage:
         prev = {}
         up = os.path.join(out, "usage.json")
         if os.path.exists(up):
-            prev = json.load(open(up))
+            prev = json.load(open(up, encoding="utf-8"))
         for n, u in usage.items():           # accumulate across resumed runs
             if n in prev:
                 for k in ("calls", "errors", "prompt_tokens", "completion_tokens", "seconds", "truncated",
                           "est_cost_usd"):
                     if k in u and k in prev[n]:
                         u[k] = round(u[k] + prev[n][k], 4)
-        json.dump(usage, open(up, "w"), indent=2)
+        json.dump(usage, open(up, "w", encoding="utf-8"), indent=2)
     print(f"[{name}] summary:")
     for k in KEY_METRICS:
         if k in agg:

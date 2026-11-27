@@ -162,7 +162,7 @@ def main():
     cfg = load_config(args.config, args.set)
     out = cfg.get("out_dir") or os.path.join("runs", "train", cfg.get("name", "run"))
     os.makedirs(out, exist_ok=True)
-    json.dump(cfg, open(os.path.join(out, "config.json"), "w"), indent=2)
+    json.dump(cfg, open(os.path.join(out, "config.json"), "w", encoding="utf-8"), indent=2)
     seed = cfg.get("seed", 0)
     random.seed(seed)
     torch.manual_seed(seed)
@@ -172,7 +172,7 @@ def main():
     pop_cfg = cfg.get("population") or {}
 
     state_path = os.path.join(out, "state.json")
-    state = json.load(open(state_path)) if os.path.exists(state_path) else {
+    state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {
         "step": 0, "latest": {}, "population": {r["adapter"]: [] for r in roles.values()}}
     init = {r["adapter"]: state["latest"].get(r["adapter"]) or r.get("init") for r in roles.values()}
     mcfg = cfg["model"]
@@ -274,13 +274,13 @@ def main():
             if gen_kind == "hf":
                 policy.load_frozen(sname, snap)
         torch.save(opts[learner].state_dict(), os.path.join(out, f"optim_{learner}.pt"))
-        json.dump(state, open(state_path, "w"), indent=2)
+        json.dump(state, open(state_path, "w", encoding="utf-8"), indent=2)
         row = {"step": step + 1, "learner": learner_role, "t_gen_s": round(t_gen, 1),
                "t_total_s": round(time.time() - t0, 1), "trained_samples": len(train_set),
                "completion_tokens": sum(len(s.completion_ids) for s in train_set)}
         row.update(step_metrics(results, learner_role, rewards, samples))
         row.update(ustats)
-        with open(log_path, "a") as f:
+        with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
         lie = row.get(f"lie_rate_{learner_role}")
         print(f"step {step + 1}/{steps} [{learner_role}] reward {row['reward_mean']:.2f} "

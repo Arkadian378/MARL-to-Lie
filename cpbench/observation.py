@@ -247,4 +247,6 @@ def render_request(req: dict) -> str:
     if kind == "thief_move":
         shown["legal"] = shown["legal"][:60]
     return (f"ACTION REQUIRED: {kind}\nDetails: {shown}\n"
-            f"Answer with a single JSON object: {ACTION_FORMATS[kind]}")
+            f"Answer with a single JSON object: {ACTION_FORMATS[kind]}\n"
+            f"Write the action fields first. You may add a private \"thought\" as the LAST field, "
+            f"at most two short sentences.")

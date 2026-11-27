@@ -130,7 +130,7 @@ class Board:
 
     @classmethod
     def from_json(cls, path: str) -> "Board":
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 

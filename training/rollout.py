@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "experiments"))
 
 from cpbench import CorruptPoliceEnv  # noqa: E402
 from cpbench.agents import RandomAgent  # noqa: E402
-from cpbench.agents.llm import SYSTEM, build_prompt, parse_json  # noqa: E402
+from cpbench.agents.llm import SYSTEM, build_prompt, parse_action  # noqa: E402
 from common import game_config, make_agent, agent_seed  # noqa: E402
 
 
@@ -87,7 +87,7 @@ def run_rollouts(policy, generator, game_spec: dict, plans: list[dict[str, SeatP
             outs = generator.generate([r[3] for r in reqs], [r[2] for r in reqs])
             for (i, aid, adapter, prompt), (text, comp_ids) in zip(reqs, outs):
                 o = obs[i][aid]
-                a = parse_json(text)
+                a, _ = parse_action(text)
                 ok = a is not None
                 if not ok:
                     pfail[i][aid] = pfail[i].get(aid, 0) + 1

@@ -99,7 +99,7 @@ grid: {radio_mode: [exact, none]}
     out = tmp_path / "runs"
     subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "evaluate.py"), "--config", str(cfg),
                     "--out", str(out)], check=True, capture_output=True)
-    agg = json.load(open(out / "radio_mode=exact" / "aggregate.json"))
+    agg = json.load(open(out / "radio_mode=exact" / "aggregate.json", encoding="utf-8"))
     assert agg["n_episodes"] == 3 and "thieves_win" in agg
     r = subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "analyze.py"), "h1", str(out)],
                        check=True, capture_output=True, text=True)
@@ -154,3 +154,14 @@ def test_ollama_backend_and_raw_replies(tmp_path):
     assert b.usage.to_dict()["truncated"] == rec["llm_stats"]["corrupt"]["truncated"]
     raw = [r for a in agents.values() for r in getattr(a, "raw", [])]
     assert raw and {"reply", "reasoning", "finish_reason", "parsed"} <= set(raw[0])
+
+
+def test_parse_action_repairs():
+    from cpbench.agents.llm import parse_action
+    assert parse_action('{"action": {"type": "arrest", "station": 4}, "thought": "x"}') == \
+        ({"type": "arrest", "station": 4, "thought": "x"}, True)
+    assert parse_action('{"action": "investigate", "station": 2}') == ({"type": "investigate", "station": 2}, True)
+    assert parse_action('{"type": "investigate", "station": 7, "thought": "I am corrupt and I wi') == \
+        ({"type": "investigate", "station": 7}, True)
+    assert parse_action('{"thought": "cut before the action') == (None, False)
+    assert parse_action('{"type": "arrest", "station": 1}') == ({"type": "arrest", "station": 1}, False)

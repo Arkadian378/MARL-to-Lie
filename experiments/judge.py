@@ -29,7 +29,7 @@ JUDGE_SYSTEM = "You are a careful annotator of deception in game transcripts. An
 
 
 def messages_of(path: str, roles: set[str]):
-    t = json.load(open(path))
+    t = json.load(open(path, encoding="utf-8"))
     g = Game.replay(GameConfig.from_dict(t["config"]), t["action_log"])
     for e in g.events:
         if e.type == "chat" and g.players[e.data["agent"]].role in roles:
@@ -72,7 +72,7 @@ def main():
 
         with ThreadPoolExecutor(args.threads) as ex:
             labels = list(ex.map(label, items))
-        with open(os.path.join(cell, "judge_labels.jsonl"), "w") as f:
+        with open(os.path.join(cell, "judge_labels.jsonl"), "w", encoding="utf-8") as f:
             for row in labels:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
         ok = [r for r in labels if r["parsed"]]
@@ -82,7 +82,7 @@ def main():
             m, lo, hi = bootstrap_ci(xs)
             summary[f"deceptive_rate.{role}"] = {"mean": m, "ci95": [lo, hi], "n": len(xs)}
             summary[f"types.{role}"] = dict(Counter(r["type"] for r in ok if r["role"] == role and r["deceptive"]))
-        json.dump(summary, open(os.path.join(cell, "judge_summary.json"), "w"), indent=2)
+        json.dump(summary, open(os.path.join(cell, "judge_summary.json"), "w", encoding="utf-8"), indent=2)
         print(os.path.basename(cell), json.dumps(summary))
 
 

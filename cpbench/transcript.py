@@ -30,6 +30,6 @@ def build(game: Game, **meta) -> dict:
 
 def save(game: Game, path: str, **meta) -> dict:
     t = build(game, **meta)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(t, f, ensure_ascii=False)
     return t

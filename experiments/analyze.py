@@ -35,7 +35,7 @@ def table(paths):
     print("| cell | n | " + " | ".join(COLS) + " |")
     print("|" + " --- |" * (len(COLS) + 2))
     for c in cells(paths):
-        a = json.load(open(os.path.join(c, "aggregate.json")))
+        a = json.load(open(os.path.join(c, "aggregate.json"), encoding="utf-8"))
         row = [os.path.relpath(c), str(a.get("n_episodes"))]
         for k in COLS:
             v = a.get(k)
@@ -54,7 +54,7 @@ def _slope(xs, ys):
 def h1(paths, metric="report_lie_rate.corrupt", n_boot=2000):
     pts = []
     for c in cells(paths):
-        cfg = json.load(open(os.path.join(c, "cell_config.json")))
+        cfg = json.load(open(os.path.join(c, "cell_config.json"), encoding="utf-8"))
         ov = (cfg.get("game") or {}).get("overrides") or {}
         level = RADIO_LEVEL["none" if ov.get("radio_thief_positions_to_corrupt") is False else ov.get("radio_mode", "exact")]
         for r in read_jsonl(os.path.join(c, "episodes.jsonl")):
