@@ -35,10 +35,10 @@ if __name__ == "__main__":
     index = []
     for name, (seed, t) in found.items():
         fn = f"{name}_seed{seed}.json"
-        with open(os.path.join(args.out, fn), "w") as f:
+        with open(os.path.join(args.out, fn), "w", encoding="utf-8") as f:
             json.dump(t, f, ensure_ascii=False)
         index.append({"file": fn, "title": name.replace("_", " "), "seed": seed,
                       "end_reason": t["summary"]["end_reason"]})
         print(fn, t["summary"])
-    with open(os.path.join(args.out, "index.json"), "w") as f:
+    with open(os.path.join(args.out, "index.json"), "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2)

@@ -25,4 +25,4 @@ if __name__ == "__main__":
         print(name, {k: round(out[name][k], 3) for k in ("thieves_win", "police_win", "thief_pieces_final",
                                                           "thieves_arrested", "corrupt_detection_rate")})
     os.makedirs("results", exist_ok=True)
-    json.dump(out, open("results/ablations.json", "w"), indent=2)
+    json.dump(out, open("results/ablations.json", "w", encoding="utf-8"), indent=2)

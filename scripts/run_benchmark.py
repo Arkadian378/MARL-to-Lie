@@ -32,5 +32,5 @@ if __name__ == "__main__":
     agg = aggregate(ms)
     print(json.dumps(agg, indent=2))
     if args.out:
-        with open(args.out, "w") as f:
+        with open(args.out, "w", encoding="utf-8") as f:
             json.dump(agg, f, indent=2)
